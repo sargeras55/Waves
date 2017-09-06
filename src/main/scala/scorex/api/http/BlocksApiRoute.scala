@@ -126,7 +126,7 @@ case class BlocksApiRoute(settings: RestAPISettings,
       history.blockAt(height).map(_.json())
     }
     else {
-      history.blockHeaderAndSizeAt(height).map { case ((bh, s)) => BlockHeader.json(bh, s) }
+      history.blockHeaderAndSize(height).map { case ((bh, s)) => BlockHeader.json(bh, s) }
     }) match {
       case Some(json) => complete(json + ("height" -> JsNumber(height)))
       case None => complete(Json.obj("status" -> "error", "details" -> "No block for this height"))
@@ -156,7 +156,7 @@ case class BlocksApiRoute(settings: RestAPISettings,
           (if (includeTransactions) {
             history.blockAt(height).map(_.json())
           } else {
-            history.blockHeaderAndSizeAt(height).map { case ((bh, s)) => BlockHeader.json(bh, s) }
+            history.blockHeaderAndSize(height).map { case ((bh, s)) => BlockHeader.json(bh, s) }
           }).map(_ + ("height" -> Json.toJson(height)))
         })
       complete(blocks)
@@ -173,13 +173,13 @@ case class BlocksApiRoute(settings: RestAPISettings,
 
   def last(includeTransactions: Boolean): StandardRoute = {
     complete(Future {
-      history.read { _ =>
-        val height = history.height()
+      {
+        val height = history.height
 
         (if (includeTransactions) {
           history.blockAt(height).get.json()
         } else {
-          val bhs = history.blockHeaderAndSizeAt(height).get
+          val bhs = history.blockHeaderAndSize(height).get
           BlockHeader.json(bhs._1, bhs._2)
         }) + ("height" -> Json.toJson(height))
       }
@@ -219,7 +219,7 @@ case class BlocksApiRoute(settings: RestAPISettings,
   def checkpoint: Route = (path("checkpoint") & post) {
     json[Checkpoint] { checkpoint =>
       checkpointProc(checkpoint).runAsync(rollbackExecutor).map {
-        _.map(score => allChannels.broadcast(LocalScoreChanged(score.getOrElse(history.score()))))
+        _.map(score => allChannels.broadcast(LocalScoreChanged(score.getOrElse(history.score))))
       }.map(_.fold(ApiError.fromValidationError,
         _ => Json.obj("" -> "")): ToResponseMarshallable)
     }

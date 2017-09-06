@@ -1,10 +1,9 @@
 package com.wavesplatform
 
-import java.util.concurrent.locks.ReentrantReadWriteLock
-
 import com.typesafe.config.ConfigFactory
-import com.wavesplatform.history.{HistoryWriterImpl, StorageFactory}
+import com.wavesplatform.history.StorageFactory
 import com.wavesplatform.settings.{BlockchainSettings, FeeSettings, FeesSettings, FunctionalitySettings, UtxSettings, WavesSettings}
+import com.wavesplatform.state2.Portfolio
 import com.wavesplatform.state2.diffs._
 import org.scalacheck.Gen
 import org.scalacheck.Gen._
@@ -13,10 +12,9 @@ import org.scalatest.prop.PropertyChecks
 import org.scalatest.{FreeSpec, Matchers}
 import scorex.account.{Address, PrivateKeyAccount, PublicKeyAccount}
 import scorex.block.Block
-import scorex.settings.TestFunctionalitySettings
 import scorex.transaction.ValidationError.SenderIsBlacklisted
 import scorex.transaction.assets.TransferTransaction
-import scorex.transaction.{FeeCalculator, Transaction}
+import scorex.transaction.{FeeCalculator, History, Transaction}
 import scorex.utils.Time
 
 import scala.concurrent.duration._
@@ -40,9 +38,7 @@ class UtxPoolSpecification extends FreeSpec
     val genesisSettings = TestHelpers.genesisSettings(Map(senderAccount -> senderBalance))
     val settings = WavesSettings.fromConfig(config).copy(blockchainSettings = BlockchainSettings('T', 5, 5, FunctionalitySettings.TESTNET, genesisSettings))
 
-    val db = open()
-    val (storage, _) = StorageFactory(db, settings).get
-    val (history, _, state, bcu, _) = storage()
+    val (history, state, bcu, _) = StorageFactory(settings, ???, ???)
 
     bcu.processBlock(Block.genesis(genesisSettings).right.get)
 
@@ -147,8 +143,7 @@ class UtxPoolSpecification extends FreeSpec
       tx2 <- listOfN(count1, transfer(sender, senderBalance / 2, new TestTime(ts + offset + 1000)))
     } yield {
       val time = new TestTime()
-      val history = HistoryWriterImpl(open(), new ReentrantReadWriteLock(), TestFunctionalitySettings.Stub,
-        TestFunctionalitySettings.EmptyFeaturesSettings).get
+      val history: History = ???
       val utx = new UtxPoolImpl(time, state, history, calculator, FunctionalitySettings.TESTNET, UtxSettings(10, offset.millis, Set.empty, Set.empty, 5.minutes))
       (utx, time, tx1, (offset + 1000).millis, tx2)
     }
@@ -205,7 +200,7 @@ class UtxPoolSpecification extends FreeSpec
 
     "portfolio" - {
       "returns a count of assets from the state if there is no transaction" in forAll(emptyUtxPool) { case (sender, state, utxPool) =>
-        val basePortfolio = state().accountPortfolio(sender)
+        val basePortfolio: Portfolio = ??? // state().accountPortfolio(sender)
 
         utxPool.size shouldBe 0
         val utxPortfolio = utxPool.portfolio(sender)
@@ -214,7 +209,7 @@ class UtxPoolSpecification extends FreeSpec
       }
 
       "taking into account unconfirmed transactions" in forAll(withValidPayments) { case (sender, state, utxPool, _, _) =>
-        val basePortfolio = state().accountPortfolio(sender)
+        val basePortfolio: Portfolio = ??? //state().accountPortfolio(sender)
 
         utxPool.size should be > 0
         val utxPortfolio = utxPool.portfolio(sender)
